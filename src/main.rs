@@ -1,4 +1,10 @@
-use axum::{extract::State, routing::{get, post}, Json, Router};
+use axum::{
+    extract::{Path, State},
+    http::StatusCode,
+    response::{IntoResponse, Response},
+    routing::{get, patch},
+    Json, Router,
+};
 use serde::{Serialize, Deserialize};
 use sqlx::{FromRow, PgPool};
 
@@ -15,25 +21,46 @@ struct NewTask {
     title: String,
 }
 
-async fn list_tasks(State(pool): State<PgPool>) -> Json<Vec<Task>> {
+enum AppError {
+    NotFound,
+    Db(sqlx::Error),
+}
+
+impl From<sqlx::Error> for AppError {
+    fn from(e: sqlx::Error) -> Self {
+        AppError::Db(e)
+    }
+}
+
+impl IntoResponse for AppError {
+    fn into_response(self) -> Response {
+        match self {
+            AppError::NotFound => (StatusCode::NOT_FOUND, "not found").into_response(),
+            AppError::Db(e) => {
+                eprintln!("db error: {e}");
+                (StatusCode::INTERNAL_SERVER_ERROR, "internal error").into_response()
+            }
+        }
+    }
+}
+
+async fn list_tasks(State(pool): State<PgPool>) -> Result<Json<Vec<Task>>, AppError> {
     let tasks = sqlx::query_as::<_, Task>(
         "SELECT id, user_id, title, done FROM tasks WHERE user_id = 1 ORDER BY id",
     )
     .fetch_all(&pool)
-    .await
-    .unwrap();
-    Json(tasks)
+    .await?;
+    Ok(Json(tasks))
 }
 
-async fn create_task(State(pool): State<PgPool>, Json(new_task): Json<NewTask>) -> Json<Task> {
+async fn create_task(State(pool): State<PgPool>, Json(new_task): Json<NewTask>) -> Result<Json<Task>, AppError> {
 	let task = sqlx::query_as::<_, Task>(
 		"INSERT INTO tasks (user_id, title, done) VALUES (1, $1, false) RETURNING id, user_id, title, done",
 	)
 	.bind(new_task.title)
 	.fetch_one(&pool)
-	.await
-	.unwrap();
-	Json(task)
+	.await?;
+	Ok(Json(task))
 }
 
 #[tokio::main]
