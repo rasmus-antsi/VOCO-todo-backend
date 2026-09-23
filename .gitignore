@@ -1,1 +1,4 @@
 /target
+
+# Real credentials live here; .env.example is the template that is committed.
+.env
