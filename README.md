@@ -4,6 +4,8 @@ A small REST API for a to-do list, written in **Rust** with **Axum** and
 **Postgres**. It is the backend for [VOCO-todo-frontend](https://github.com/rasmus-antsi/VOCO-todo-frontend),
 a React client that talks to it over `/api`.
 
+**Live:** https://voco-todo-backend-production.up.railway.app/api/health
+
 The whole server is one file — [`src/main.rs`](src/main.rs), about 130 lines.
 
 ## Stack
@@ -146,13 +148,14 @@ sqlx migrate add <name>      # creates migrations/<timestamp>_<name>.sql
 The `Dockerfile` builds a release binary and copies it into a slim Debian
 image, so the deployed container is the binary plus CA certificates.
 
-On a platform like Railway: create a Postgres instance, deploy this repo, and
-set `DATABASE_URL` to the database's connection string. `PORT` is injected by
-the platform, and migrations run themselves on the first boot.
+This is deployed on Railway as three services — Postgres, this API, and the
+frontend. The API needs one variable, `DATABASE_URL`, set to Railway's
+reference `${{Postgres.DATABASE_URL}}`; `PORT` is injected by the platform and
+migrations run themselves on the first boot.
 
-The CORS layer currently allows **any** origin, which is the right default
-while the frontend's URL is still changing. Once it is fixed, narrow it to that
-one origin in `main.rs`.
+The CORS layer currently allows **any** origin. That is the right default while
+the frontend's URL is still moving, but now that it is fixed it could be
+narrowed to that one origin in `main.rs`.
 
 ## What is missing
 
